@@ -1,121 +1,6 @@
 import { useState } from 'react'
-
-function App() {
-  const [pin, setPin] = useState('')
-  const [result, setResult] = useState(null)
-  const [yesVotes, setYesVotes] = useState(0)
-  const [noVotes, setNoVotes] = useState(0)
-
-  // 🔗 ჩასვი შენი რეალური Google Form-ის ან სარეგისტრაციო ლინკი აქ
-  const GOOGLE_REGISTRATION_LINK = "https://forms.google.com"
-
-  const generateUniqueCode = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    let randomCode = ''
-    for (let i = 0; i < 6; i++) {
-      randomCode += chars.charAt(Math.floor(Math.random() * chars.length))
-    }
-    setPin(`SPG-${randomCode}`)
-  }
-
-  const handleVote = (type) => {
-    if (!pin) {
-      setResult({ success: false, text: '⚠️ გთხოვთ, მიუთითოთ ან დააგენერიროთ უნიკალური კოდი!' })
-      return
-    }
-
-    if (type === 'yes') {
-      setYesVotes(prev => prev + 1)
-    } else {
-      setNoVotes(prev => prev + 1)
-    }
-
-    setResult({ success: true, text: `✓ ხმა წარმატებით დაფიქსირდა კოდით: ${pin}` })
-  }
-
-  return (
-    <div className="app-container">
-      {/* ფონის ნეონის განათებები */}
-      <div className="glow-orb orb-1"></div>
-      <div className="glow-orb orb-2"></div>
-
-      <div className="glass-card">
-        {/* ჰედერი */}
-        <div className="header">
-          <div className="badge">ZK-VOTING PROTOCOL</div>
-          <h1>Student Power Georgia</h1>
-          <p className="subtitle">უსაფრთხო, ანონიმური და გამჭვირვალე ხმის მიცემა</p>
-        </div>
-
-        {/* 🔗 გუგლის სარეგისტრაციო ლინკის ბლოკი */}
-        <div className="registration-banner">
-          <span>ჯერ არ ხართ დარეგისტრირებული?</span>
-          <a 
-            href={GOOGLE_REGISTRATION_LINK} 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="btn btn-link"
-          >
-            📝 რეგისტრაცია (Google Form) ↗
-          </a>
-        </div>
-
-        {/* კოდის გენერაციის სექცია */}
-        <div className="input-group">
-          <input 
-            type="text" 
-            placeholder="შეიყვანეთ ან დააგენერიროთ კოდი" 
-            value={pin} 
-            onChange={(e) => setPin(e.target.value)}
-            className="code-input"
-          />
-          <button onClick={generateUniqueCode} className="btn btn-secondary">
-            <span>🎲</span> გენერაცია
-          </button>
-        </div>
-
-        {/* ხმის მიცემის ღილაკები */}
-        <div className="vote-actions">
-          <button onClick={() => handleVote('yes')} className="btn btn-vote btn-yes">
-            <span>👍</span> მომხრე
-          </button>
-          <button onClick={() => handleVote('no')} className="btn btn-vote btn-no">
-            <span>👎</span> წინააღმდეგი
-          </button>
-        </div>
-
-        {/* შეტყობინების ბოქსი */}
-        {result && (
-          <div className={`status-box ${result.success ? 'status-success' : 'status-error'}`}>
-            {result.text}
-          </div>
-        )}
-
-        <div className="divider"></div>
-
-        {/* შედეგების სექცია */}
-        <div className="results-section">
-          <h3>📊 საერთო შედეგები (Live)</h3>
-          <div className="stats-grid">
-            <div className="stat-card stat-yes">
-              <span className="stat-label">მომხრე</span>
-              <span className="stat-value">{yesVotes}</span>
-            </div>
-            <div className="stat-card stat-no">
-              <span className="stat-label">წინააღმდეგი</span>
-              <span className="stat-value">{noVotes}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export default App
-import { useState } from 'react'
 import { GoogleLogin } from '@react-oauth/google'
-import { jwtDecode } from 'jwt-decode' // თუ მომხმარებლის მონაცემების წაკითხვა გინდა
+import { jwtDecode } from 'jwt-decode'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -124,20 +9,23 @@ function App() {
   const [yesVotes, setYesVotes] = useState(0)
   const [noVotes, setNoVotes] = useState(0)
 
-  // Google-ით წარმატებული ავტორიზაცია
+  // Google Sign-In წარმატებული ავტორიზაცია
   const handleGoogleSuccess = (credentialResponse) => {
-    // დეკოდირება (მომხმარებლის პროფილის მისაღებად)
-    const decoded = jwtDecode(credentialResponse.credential)
-    setUser(decoded)
+    try {
+      const decoded = jwtDecode(credentialResponse.credential)
+      setUser(decoded)
 
-    // ავტომატურად ვუგენერირებთ უნიკალურ ZK კოდს ავტორიზებულ მომხმარებელს
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    let randomCode = ''
-    for (let i = 0; i < 6; i++) {
-      randomCode += chars.charAt(Math.floor(Math.random() * chars.length))
+      // უნიკალური კოდის გენერაცია ავტორიზებული მომხმარებლისთვის
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+      let randomCode = ''
+      for (let i = 0; i < 6; i++) {
+        randomCode += chars.charAt(Math.floor(Math.random() * chars.length))
+      }
+      setPin(`SPG-${randomCode}`)
+      setResult({ success: true, text: `✓ მოგესალმებით, ${decoded.name}! თქვენი კოდი გენერირებულია.` })
+    } catch (err) {
+      setResult({ success: false, text: '❌ ავტორიზაციის შეცდომა.' })
     }
-    setPin(`SPG-${randomCode}`)
-    setResult({ success: true, text: `✓ მოგესალმებით, ${decoded.name}! თქვენი კოდი გენერირებულია.` })
   }
 
   const handleGoogleError = () => {
@@ -156,7 +44,7 @@ function App() {
       setNoVotes(prev => prev + 1)
     }
 
-    setResult({ success: true, text: `✓ ხმა წარმატებით დაფიქსირდა!` })
+    setResult({ success: true, text: `✓ ხმა წარმატებით დაფიქსირდა კოდით: ${pin}` })
   }
 
   return (
@@ -171,7 +59,7 @@ function App() {
           <p className="subtitle">უსაფრთხო და ავტორიზებული ხმის მიცემის პორტალი</p>
         </div>
 
-        {/* 🔑 GOOGLE AUTHENTICATION SECTION */}
+        {/* GOOGLE AUTHENTICATION */}
         <div className="auth-section" style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
           {!user ? (
             <>
@@ -191,18 +79,18 @@ function App() {
           )}
         </div>
 
-        {/* PIN CODE display */}
+        {/* PIN CODE */}
         <div className="input-group">
           <input 
             type="text" 
-            placeholder="თქვენი უნიკალური კოდი" 
+            placeholder="თქვენი უნიკალური კოდი (გამოჩნდება ავტორიზაციის შემდეგ)" 
             value={pin} 
             readOnly
             className="code-input"
           />
         </div>
 
-        {/* VOTE ACTIONS */}
+        {/* VOTE BUTTONS */}
         <div className="vote-actions">
           <button onClick={() => handleVote('yes')} className="btn btn-vote btn-yes">
             <span>👍</span> მომხრე
