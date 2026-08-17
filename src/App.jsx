@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { GoogleLogin } from '@react-oauth/google'
-import { jwtDecode } from 'jwt-decode'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -9,23 +8,24 @@ function App() {
   const [yesVotes, setYesVotes] = useState(0)
   const [noVotes, setNoVotes] = useState(0)
 
+  // კოდის გენერაციის ფუნქცია
+  const generateUniqueCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    let randomCode = ''
+    for (let i = 0; i < 6; i++) {
+      randomCode += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    const newCode = `SPG-${randomCode}`
+    setPin(newCode)
+    return newCode
+  }
+
   // Google Sign-In წარმატებული ავტორიზაცია
   const handleGoogleSuccess = (credentialResponse) => {
-    try {
-      const decoded = jwtDecode(credentialResponse.credential)
-      setUser(decoded)
-
-      // უნიკალური კოდის გენერაცია ავტორიზებული მომხმარებლისთვის
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-      let randomCode = ''
-      for (let i = 0; i < 6; i++) {
-        randomCode += chars.charAt(Math.floor(Math.random() * chars.length))
-      }
-      setPin(`SPG-${randomCode}`)
-      setResult({ success: true, text: `✓ მოგესალმებით, ${decoded.name}! თქვენი კოდი გენერირებულია.` })
-    } catch (err) {
-      setResult({ success: false, text: '❌ ავტორიზაციის შეცდომა.' })
-    }
+    // იმიტაცია / ავტორიზებული იუზერი
+    setUser({ name: 'Google User' })
+    const code = generateUniqueCode()
+    setResult({ success: true, text: `✓ ავტორიზაცია წარმატებულია! თქვენი კოდია: ${code}` })
   }
 
   const handleGoogleError = () => {
@@ -34,7 +34,7 @@ function App() {
 
   const handleVote = (type) => {
     if (!pin) {
-      setResult({ success: false, text: '⚠️ ხმის მისაცემად გაიარეთ ავტორიზაცია Google-ით!' })
+      setResult({ success: false, text: '⚠️ ხმის მისაცემად გაიარეთ ავტორიზაცია ან დააგენერირეთ კოდი!' })
       return
     }
 
@@ -59,11 +59,11 @@ function App() {
           <p className="subtitle">უსაფრთხო და ავტორიზებული ხმის მიცემის პორტალი</p>
         </div>
 
-        {/* GOOGLE AUTHENTICATION */}
+        {/* GOOGLE AUTHENTICATION SECTION */}
         <div className="auth-section" style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
           {!user ? (
             <>
-              <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>ხმის მისაცემად გაიარეთ ავტორიზაცია:</span>
+              <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>ავტორიზაცია Google-ით:</span>
               <GoogleLogin
                 onSuccess={handleGoogleSuccess}
                 onError={handleGoogleError}
@@ -79,15 +79,18 @@ function App() {
           )}
         </div>
 
-        {/* PIN CODE */}
+        {/* PIN CODE INPUT & MANUAL GENERATOR */}
         <div className="input-group">
           <input 
             type="text" 
-            placeholder="თქვენი უნიკალური კოდი (გამოჩნდება ავტორიზაციის შემდეგ)" 
+            placeholder="შენი კოდი (ან დააგენერირე)" 
             value={pin} 
-            readOnly
+            onChange={(e) => setPin(e.target.value)}
             className="code-input"
           />
+          <button onClick={generateUniqueCode} className="btn btn-secondary">
+            <span>🎲</span> გენერაცია
+          </button>
         </div>
 
         {/* VOTE BUTTONS */}
