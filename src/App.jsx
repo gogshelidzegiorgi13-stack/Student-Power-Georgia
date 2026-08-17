@@ -1,56 +1,96 @@
 import { useState } from 'react'
 import { GoogleLogin } from '@react-oauth/google'
 import { jwtDecode } from 'jwt-decode'
+import { supabase } from './supabaseClient'
 
 function App() {
   const [user, setUser] = useState(null)
   const [pin, setPin] = useState('')
   const [result, setResult] = useState(null)
-  const [yesVotes, setYesVotes] = useState(0)
-  const [noVotes, setNoVotes] = useState(0)
+  const [hasVoted, setHasVoted] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  // 🔑 Google-ით რეალური ავტორიზაცია
-  const handleGoogleSuccess = (credentialResponse) => {
+  // 🔑 Google Login & Check Database
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setLoading(true)
     try {
-      // მომხმარებლის მონაცემების წაკითხვა JWT ტოკენიდან
       const decoded = jwtDecode(credentialResponse.credential)
       setUser(decoded)
 
-      // უნიკალური კოდის გენერაცია
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-      let randomCode = ''
-      for (let i = 0; i < 6; i++) {
-        randomCode += chars.charAt(Math.floor(Math.random() * chars.length))
-      }
-      const generatedPin = `SPG-${randomCode}`
-      setPin(generatedPin)
+      // 1. ვამოწმებთ Supabase ბაზაში: ხომ არ არის ეს ელფოსტა უკვე votes ცხრილში?
+      const { data, error } = await supabase
+        .from('votes')
+        .select('*')
+        .eq('email', decoded.email)
+        .maybeSingle()
 
-      setResult({ 
-        success: true, 
-        text: `✓ მოგესალმებით, ${decoded.name}! თქვენი კოდია: ${generatedPin}` 
-      })
-    } catch (error) {
-      setResult({ success: false, text: '❌ ავტორიზაციის შეცდომა.' })
+      if (data) {
+        // ❌ თუ ბაზაში იპოვა ეს მეილი — ვბლოკავთ!
+        setHasVoted(true)
+        setPin(data.pin)
+        setResult({
+          success: false,
+          text: `⚠️ თქვენ უკვე მიეცით ხმა კოდით: ${data.pin}. განმეორებით ხმის მიცემა დაბლოკილია!`
+        })
+      } else {
+        // ✅ თუ ახალი მომხმარებელია — ვგენერირებთ კოდს
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+        let randomCode = ''
+        for (let i = 0; i < 6; i++) {
+          randomCode += chars.charAt(Math.floor(Math.random() * chars.length))
+        }
+        const generatedPin = `SPG-${randomCode}`
+        setPin(generatedPin)
+        setHasVoted(false)
+
+        setResult({
+          success: true,
+          text: `✓ მოგესალმებით, ${decoded.name}! თქვენი კოდია: ${generatedPin}`
+        })
+      }
+    } catch (err) {
+      console.error(err)
+      setResult({ success: false, text: '❌ შეცდომა ავტორიზაციისას.' })
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleGoogleError = () => {
-    setResult({ success: false, text: '❌ Google-ით ავტორიზაცია ვერ განხორციელდა.' })
-  }
-
-  const handleVote = (type) => {
+  // 🗳️ ხმის მიცემა და Supabase-ში ჩაწერა
+  const handleVote = async (type) => {
     if (!user) {
       setResult({ success: false, text: '⚠️ ხმის მისაცემად გაიარეთ ავტორიზაცია Google-ით!' })
       return
     }
 
-    if (type === 'yes') {
-      setYesVotes(prev => prev + 1)
-    } else {
-      setNoVotes(prev => prev + 1)
+    if (hasVoted) {
+      setResult({ success: false, text: '⚠️ თქვენ უკვე დაფიქსირებული გაქვთ ხმა!' })
+      return
     }
 
-    setResult({ success: true, text: `✓ ხმა წარმატებით დაფიქსირდა კოდით: ${pin}` })
+    setLoading(true)
+
+    // ჩაწერა Supabase ბაზაში
+    const { error } = await supabase
+      .from('votes')
+      .insert([
+        { email: user.email, vote_type: type, pin: pin }
+      ])
+
+    if (error) {
+      // თუ UNIQUE constraint-მა დაიჭირა დუბლიკატი (error code 23505)
+      if (error.code === '23505') {
+        setHasVoted(true)
+        setResult({ success: false, text: '⚠️ ბაზის დაცვა: ამ ელფოსტით ხმა უკვე დაფიქსირებულია!' })
+      } else {
+        console.error(error)
+        setResult({ success: false, text: '❌ ხმის ჩაწერა ვერ მოხერხდა.' })
+      }
+    } else {
+      setHasVoted(true)
+      setResult({ success: true, text: `🎉 თქვენი ხმა წარმატებით დარეგისტრირდა! კოდი: ${pin}` })
+    }
+    setLoading(false)
   }
 
   return (
@@ -65,14 +105,13 @@ function App() {
           <p className="subtitle">უსაფრთხო და ავტორიზებული ხმის მიცემის პორტალი</p>
         </div>
 
-        {/* REPLICATED GOOGLE LOGIN COMPONENT */}
         <div className="auth-section" style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
           {!user ? (
             <>
               <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>ავტორიზაცია Google-ით:</span>
               <GoogleLogin
                 onSuccess={handleGoogleSuccess}
-                onError={handleGoogleError}
+                onError={() => setResult({ success: false, text: '❌ ავტორიზაციის შეცდომა' })}
                 theme="filled_dark"
                 shape="pill"
                 locale="ka"
@@ -86,7 +125,6 @@ function App() {
           )}
         </div>
 
-        {/* INPUT GROUP */}
         <div className="input-group">
           <input 
             type="text" 
@@ -97,37 +135,30 @@ function App() {
           />
         </div>
 
-        {/* VOTING BUTTONS */}
         <div className="vote-actions">
-          <button onClick={() => handleVote('yes')} className="btn btn-vote btn-yes">
+          <button 
+            onClick={() => handleVote('yes')} 
+            disabled={hasVoted || !user || loading} 
+            className="btn btn-vote btn-yes"
+            style={{ opacity: (hasVoted || !user || loading) ? 0.4 : 1, cursor: (hasVoted || !user || loading) ? 'not-allowed' : 'pointer' }}
+          >
             <span>👍</span> მომხრე
           </button>
-          <button onClick={() => handleVote('no')} className="btn btn-vote btn-no">
+          <button 
+            onClick={() => handleVote('no')} 
+            disabled={hasVoted || !user || loading} 
+            className="btn btn-vote btn-no"
+            style={{ opacity: (hasVoted || !user || loading) ? 0.4 : 1, cursor: (hasVoted || !user || loading) ? 'not-allowed' : 'pointer' }}
+          >
             <span>👎</span> წინააღმდეგი
           </button>
         </div>
 
         {result && (
-          <div className={`status-box ${result.success ? 'status-success' : 'status-error'}`}>
+          <div className={`status-box ${result.success ? 'status-success' : 'status-error'}`} style={{ marginTop: '15px' }}>
             {result.text}
           </div>
         )}
-
-        <div className="divider"></div>
-
-        <div className="results-section">
-          <h3>📊 საერთო შედეგები (Live)</h3>
-          <div className="stats-grid">
-            <div className="stat-card stat-yes">
-              <span className="stat-label">მომხრე</span>
-              <span className="stat-value">{yesVotes}</span>
-            </div>
-            <div className="stat-card stat-no">
-              <span className="stat-label">წინააღმდეგი</span>
-              <span className="stat-value">{noVotes}</span>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   )
