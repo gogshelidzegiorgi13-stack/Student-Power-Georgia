@@ -1,7 +1,14 @@
 import { useState } from 'react'
 import { GoogleLogin } from '@react-oauth/google'
 import { jwtDecode } from 'jwt-decode'
-import { supabase } from './supabaseClient'
+import { createClient } from '@supabase/supabase-js'
+
+// 🔑 Supabase ინიციალიზაცია პირდაპირ App.jsx-ში:
+const supabaseUrl = 'https://jngzlorzhnzcffgoxdzn.supabase.co'
+// ⚠️ ჩასვი შენი სრული Publishable Key (სამი წერტილის '...' გარეშე)
+const supabaseAnonKey = 'sb_publishable_nbbT_om7rJ_8ZUHuH9cpjA_QRndi'
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 function App() {
   const [user, setUser] = useState(null)
@@ -78,7 +85,6 @@ function App() {
       ])
 
     if (error) {
-      // თუ UNIQUE constraint-მა დაიჭირა დუბლიკატი (error code 23505)
       if (error.code === '23505') {
         setHasVoted(true)
         setResult({ success: false, text: '⚠️ ბაზის დაცვა: ამ ელფოსტით ხმა უკვე დაფიქსირებულია!' })
