@@ -61,8 +61,9 @@ function App() {
 
       <hr />
       <h4>📊 საერთო შედეგები (Live):</h4>
-      <p>👍 მომხრე: <b>{yesVotes}</b> | 👎 წინააღმდეგი: <b>{noVotes}</b></p>
+     <p>👍 მომხრე: <b>{yesVotes}</b> | 👎 წინააღმდეგი: <b>{noVotes}</b></p>
     </div>
+  );
+}
 
-
-  )
+export default App;
